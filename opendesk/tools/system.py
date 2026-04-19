@@ -4,18 +4,28 @@ import time
 from typing import Optional
 
 
-def list_processes(sort_by: str = "cpu", limit: int = 20, filter_name: Optional[str] = None) -> dict:
+def list_processes(sort_by: str = "memory", limit: int = 20, filter_name: Optional[str] = None) -> dict:
+    """List running processes sorted by memory usage by default."""
     processes = []
+    psutil.cpu_percent(interval=0.1)  # Initialize CPU tracking
+    
     for proc in psutil.process_iter(["pid", "name", "cpu_percent", "memory_info", "status"]):
         try:
             info = proc.info
             if filter_name and filter_name.lower() not in info["name"].lower():
                 continue
+            
+            # Try to get memory - might fail for system processes
+            try:
+                mem_mb = round(info["memory_info"].rss / (1024 * 1024), 1) if info["memory_info"] else 0.0
+            except (psutil.AccessDenied, AttributeError):
+                mem_mb = 0.0
+                
             processes.append({
                 "pid": info["pid"],
                 "name": info["name"],
                 "cpu_percent": info["cpu_percent"] or 0.0,
-                "memory_mb": round(info["memory_info"].rss / (1024 * 1024), 1) if info["memory_info"] else 0.0,
+                "memory_mb": mem_mb,
                 "status": info["status"],
             })
         except (psutil.NoSuchProcess, psutil.AccessDenied):
@@ -110,7 +120,8 @@ def get_network_info() -> dict:
         for name, addr_list in addrs.items():
             is_up = stats[name].isup if name in stats else False
             for addr in addr_list:
-                if addr.family == psutil.AF_INET:
+                # Check for IPv4 address - AF_INET = 2
+                if hasattr(addr, 'family') and addr.family == 2:
                     interfaces.append({
                         "name": name,
                         "ip": addr.address,
