@@ -96,22 +96,44 @@ def call_tool(tool_name: str, args: dict):
         list_processes, list_directory, get_clipboard, get_volume,
         open_application, close_application, send_notification,
     )
-
-    tools = {
-        "get_open_tabs": get_open_tabs,
-        "take_screenshot": take_screenshot,
-        "get_system_info": get_system_info,
-        "get_disk_usage": get_disk_usage,
-        "list_processes": list_processes,
-        "list_directory": list_directory,
-        "get_clipboard": get_clipboard,
-        "get_volume": get_volume,
-        "open_application": open_application,
-        "close_application": close_application,
-        "send_notification": send_notification,
-    }
     
-    if tool_name not in tools:
+    if tool_name == "open_application":
+        app_name = args.get("app_name") or args.get("application") or args.get("app") or args.get("name", "")
+        app_args = args.get("args")
+        return open_application(app_name=app_name, args=app_args)
+    elif tool_name == "close_application":
+        app_name = args.get("app_name") or args.get("application") or args.get("app") or args.get("name", "")
+        force = args.get("force", False)
+        return close_application(app_name=app_name, force=force)
+    elif tool_name == "get_open_tabs":
+        browser = args.get("browser")
+        return get_open_tabs(browser=browser)
+    elif tool_name == "take_screenshot":
+        save_path = args.get("save_path")
+        monitor = args.get("monitor", 0)
+        return take_screenshot(save_path=save_path, monitor=monitor)
+    elif tool_name == "get_system_info":
+        return get_system_info()
+    elif tool_name == "get_disk_usage":
+        return get_disk_usage()
+    elif tool_name == "list_processes":
+        sort_by = args.get("sort_by", "memory")
+        limit = args.get("limit", 20)
+        filter_name = args.get("filter_name")
+        return list_processes(sort_by=sort_by, limit=limit, filter_name=filter_name)
+    elif tool_name == "list_directory":
+        path = args.get("path", ".")
+        return list_directory(path=path)
+    elif tool_name == "get_clipboard":
+        return get_clipboard()
+    elif tool_name == "get_volume":
+        return get_volume()
+    elif tool_name == "set_volume":
+        level = args.get("level", 0.5)
+        return set_volume(level=level)
+    elif tool_name == "send_notification":
+        title = args.get("title", "")
+        message = args.get("message", "")
+        return send_notification(title=title, message=message)
+    else:
         return {"error": f"Unknown tool: {tool_name}"}
-    
-    return tools[tool_name](**args)

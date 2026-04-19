@@ -4,6 +4,8 @@
 
 Give your AI assistant (Claude, Cursor, Ollama) full control of your desktop with 30+ tools.
 
+![Demo](/docs/demo-hero.gif)
+
 [![PyPI version](https://img.shields.io/pypi/v/opendesk)](https://pypi.org/project/opendesk/)
 [![Python](https://img.shields.io/pypi/pyversions/opendesk)](https://pypi.org/project/opendesk/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -105,6 +107,8 @@ Add to `~/.cursor/mcp.json`:
 }
 ```
 
+![Demo](/docs/demo-cli.gif)
+
 ### Option 5: Local AI (Ollama)
 
 ```bash
@@ -118,6 +122,8 @@ python examples/ollama_bridge.py
 # "take a screenshot and save it"
 # "list my recent files"
 ```
+
+![Demo](/docs/demo-local-ai.gif)
 
 ---
 
@@ -262,6 +268,7 @@ Here are exact prompts you can use with Claude Desktop when opendesk is connecte
 ```
 
 ### File Operations
+![Demo](/docs/demo-files.gif)
 ```
 "Read the contents of ~/Documents/notes.txt"
 "Create a new file called todo.txt with this list"
