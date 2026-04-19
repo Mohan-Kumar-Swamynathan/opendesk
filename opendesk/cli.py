@@ -50,6 +50,8 @@ def main():
     sub.add_parser("init", help="Auto-configure MCP clients")
     sub.add_parser("doctor", help="Diagnose setup")
     sub.add_parser("uninstall", help="Remove opendesk from clients")
+    sub.add_parser("tool", help="Call a tool directly: opendesk tool get_system_info")
+    sub.add_parser("run", help="Alias for tool: opendesk run get_system_info")
 
     audit_p = sub.add_parser("audit", help="Show audit log")
     audit_p.add_argument("--limit", type=int, default=50)
@@ -112,6 +114,9 @@ def _dispatch(args, rest):
     elif args.command == "uninstall":
         from opendesk.commands.uninstall import run_uninstall
         run_uninstall()
+    elif args.command in ("tool", "run"):
+        from opendesk.commands.tool_call import run_tool
+        run_tool(rest, dry_run=args.dry_run)
     elif rest:
         from opendesk.commands.tool_call import run_tool
         run_tool(rest, dry_run=args.dry_run)

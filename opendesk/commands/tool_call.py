@@ -129,6 +129,10 @@ def run_tool(args, dry_run=False):
 
     try:
         result = tools[tool_name](**kwargs)
-        console.print_json(result)
+        if isinstance(result, dict):
+            import json
+            console.print_json(json.dumps(result))
+        else:
+            console.print(result)
     except Exception as e:
         console.print(f"[red]Error: {e}[/red]")
