@@ -100,12 +100,18 @@ If unclear what user wants, ask for clarification or just chat!"""
         # Add user message to history
         conversation.append({"role": "user", "content": user_input})
 
+        # Only use tools for action keywords
+        action_keywords = ["open", "close", "launch", "check", "take", "screenshot", 
+                         "list", "show", "get", "kill", "cpu", "memory", "battery",
+                         "processes", "files", "disk", "time", "date", "volume"]
+        use_tools = any(kw in user_input.lower() for kw in action_keywords)
+
         # --- Call Ollama ---
         try:
             response = ollama.chat(
                 model=model,
                 messages=conversation,
-                tools=tool_specs,
+                tools=tool_specs if use_tools else None,
             )
         except Exception as exc:
             console.print(f"[red]Ollama error: {exc}[/red]")
