@@ -293,20 +293,19 @@ def run_ask(query: str, model: str = None):
     tool_specs = _build_tool_specs(registry)
     console.print(f"[dim]Model: {model} | Tools: {len(tool_specs)}[/dim]\n")
 
-# --- Step 6: Call Ollama with native tool calling ---
-    # Only use tools if query explicitly asks for action
-    action_keywords = ["open", "close", "launch", "check", "take", "screenshot", 
-                       "list", "show", "get", "what is my cpu", "what is my memory",
-                       "battery", "processes", "files", "disk", "time", "date",
-                       "volume", "mute", "unmute"]
-    use_tools = any(kw in query.lower() for kw in action_keywords)
+    # --- Step 6: Call Ollama with native tool calling ---
+    system_prompt = """You are opendesk assistant, a desktop automation helper.
 
-    system_prompt = """You are a friendly assistant. 
+You can either:
+1) Reply normally in natural language, or
+2) Call available tools when user intent needs real system data or desktop actions.
 
-Response rules:
-- If user asks to DO something (open app, check status), respond with tool call
-- If user is just chatting, just respond naturally
-- Don't overthink it!"""
+Rules:
+- Use tools for factual system/device state (cpu, memory, battery, files, apps, time, clipboard, volume, etc.).
+- Use tools for actions (open/close/focus apps, screenshots, file ops, commands, notifications, audio, browser).
+- If user asks for something ambiguous, ask a short clarification question.
+- If a request is impossible or unsafe with available tools, explain briefly and suggest an alternative.
+- Keep responses concise and practical."""
 
     try:
         response = ollama.chat(
@@ -315,7 +314,7 @@ Response rules:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": query}
             ],
-            tools=tool_specs if use_tools else None,
+            tools=tool_specs,
         )
     except Exception as exc:
         console.print(f"[red]Ollama error: {exc}[/red]")

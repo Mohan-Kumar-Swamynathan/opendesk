@@ -26,7 +26,7 @@ def run_bridge(model: str = None):
         import ollama
     except ImportError:
         console.print("[red]Ollama Python library not installed.[/red]")
-        console.print("  Install: [cyan]pip install ollama[/cyan]")
+        console.print("  Install: [cyan]pip install opendesk[ollama][/cyan]")
         return
 
     if not shutil.which("ollama"):
@@ -73,14 +73,18 @@ def run_bridge(model: str = None):
     console.print()
 
     # --- System prompt ---
-    system_msg = """You are a friendly assistant. 
+    system_msg = """You are opendesk assistant, a desktop automation helper.
 
-Response rules:
-- For greetings, just say hi friendly
-- For random questions (like "what is charge"), ask for clarification or say you don't understand
-- Only use tools for clear commands like "open Safari", "check CPU", "take screenshot"
+You can either:
+1) Reply normally in natural language, or
+2) Call available tools when user intent needs real system data or desktop actions.
 
-If unclear what user wants, ask for clarification or just chat!"""
+Rules:
+- Use tools for factual system/device state (cpu, memory, battery, files, apps, time, clipboard, volume, etc.).
+- Use tools for actions (open/close/focus apps, screenshots, file ops, commands, notifications, audio, browser).
+- If user asks for something ambiguous, ask a short clarification question.
+- If a request is impossible or unsafe with available tools, explain briefly and suggest an alternative.
+- Keep responses concise and practical."""
 
     conversation: list[dict] = [{"role": "system", "content": system_msg}]
 
@@ -186,7 +190,7 @@ If unclear what user wants, ask for clarification or just chat!"""
         # --- Trim conversation to prevent context overflow ---
         # Keep system prompt + last 20 exchanges
         if len(conversation) > 40:
-            conversation = conversation[-40:]
+            conversation = [conversation[0]] + conversation[-39:]
 
 
 def _check_internet() -> bool:
