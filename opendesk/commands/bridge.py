@@ -72,8 +72,17 @@ def run_bridge(model: str = None):
     ))
     console.print()
 
-    # --- Conversation loop ---
-    conversation: list[dict] = []
+    # --- System prompt ---
+    system_msg = """You are a friendly assistant. 
+
+Response rules:
+- For greetings, just say hi friendly
+- For random questions (like "what is charge"), ask for clarification or say you don't understand
+- Only use tools for clear commands like "open Safari", "check CPU", "take screenshot"
+
+If unclear what user wants, ask for clarification or just chat!"""
+
+    conversation: list[dict] = [{"role": "system", "content": system_msg}]
 
     while True:
         try:

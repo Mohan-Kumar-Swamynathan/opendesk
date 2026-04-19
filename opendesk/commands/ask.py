@@ -293,12 +293,29 @@ def run_ask(query: str, model: str = None):
     tool_specs = _build_tool_specs(registry)
     console.print(f"[dim]Model: {model} | Tools: {len(tool_specs)}[/dim]\n")
 
-    # --- Step 6: Call Ollama with native tool calling ---
+# --- Step 6: Call Ollama with native tool calling ---
+    # Only use tools if query explicitly asks for action
+    action_keywords = ["open", "close", "launch", "check", "take", "screenshot", 
+                       "list", "show", "get", "what is my cpu", "what is my memory",
+                       "battery", "processes", "files", "disk", "time", "date",
+                       "volume", "mute", "unmute"]
+    use_tools = any(kw in query.lower() for kw in action_keywords)
+
+    system_prompt = """You are a friendly assistant. 
+
+Response rules:
+- If user asks to DO something (open app, check status), respond with tool call
+- If user is just chatting, just respond naturally
+- Don't overthink it!"""
+
     try:
         response = ollama.chat(
             model=model,
-            messages=[{"role": "user", "content": query}],
-            tools=tool_specs,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": query}
+            ],
+            tools=tool_specs if use_tools else None,
         )
     except Exception as exc:
         console.print(f"[red]Ollama error: {exc}[/red]")
