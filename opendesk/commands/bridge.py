@@ -1,152 +1,184 @@
-"""Interactive Ollama bridge."""
+"""Interactive Ollama bridge — conversational desktop AI.
+
+Usage:
+    opendesk bridge
+    opendesk bridge --model qwen2.5:14b
+"""
 import json
+import logging
+import shutil
+import sys
+import time
+from typing import Optional
+
 from rich.console import Console
+from rich.panel import Panel
 
-console = Console()
-
-TOOL_SCHEMAS = {
-    "get_open_tabs": {"description": "Get list of open browser tabs", "parameters": {"browser": {"type": "string"}}},
-    "take_screenshot": {"description": "Take a screenshot", "parameters": {"save_path": {"type": "string"}}},
-    "get_system_info": {"description": "Get CPU, memory, battery info", "parameters": {}},
-    "get_disk_usage": {"description": "Get disk usage", "parameters": {}},
-    "list_processes": {"description": "List processes", "parameters": {"limit": {"type": "integer"}}},
-    "list_directory": {"description": "List files", "parameters": {"path": {"type": "string"}}},
-    "get_clipboard": {"description": "Get clipboard", "parameters": {}},
-    "get_volume": {"description": "Get volume", "parameters": {}},
-    "set_volume": {"description": "Set volume", "parameters": {"level": {"type": "number"}}},
-    "open_application": {"description": "Open app", "parameters": {"app_name": {"type": "string"}}},
-    "close_application": {"description": "Close app", "parameters": {"app_name": {"type": "string"}}},
-    "send_notification": {"description": "Send notification", "parameters": {"title": {"type": "string"}, "message": {"type": "string"}}},
-    "get_current_time": {"description": "Get current date/time", "parameters": {}},
-}
+logger = logging.getLogger(__name__)
+console = Console(stderr=True)  # Never pollute stdout
 
 
 def run_bridge(model: str = None):
+    """Start an interactive conversation loop with local Ollama."""
+
+    # --- Pre-flight checks ---
+    try:
+        import ollama
+    except ImportError:
+        console.print("[red]Ollama Python library not installed.[/red]")
+        console.print("  Install: [cyan]pip install ollama[/cyan]")
+        return
+
+    if not shutil.which("ollama"):
+        console.print("[red]Ollama not found on this machine.[/red]")
+        console.print("  Install: [cyan]https://ollama.ai[/cyan]")
+        return
+
+    try:
+        model_list = ollama.list()
+        available = [m.get("name", m.get("model", "")) for m in model_list.get("models", [])]
+    except Exception:
+        console.print("[red]Ollama is installed but not running.[/red]")
+        console.print("  Start it: [cyan]ollama serve[/cyan]")
+        return
+
+    if not available:
+        console.print("[yellow]No Ollama models installed.[/yellow]")
+        console.print("  Pull one: [cyan]ollama pull llama3.2:latest[/cyan]")
+        return
+
+    # --- Pick model ---
+    from opendesk.commands.ask import _pick_model
+    model = model or _pick_model(available)
     if not model:
-        model = "llama3.2:latest"
-    import ollama
-    import datetime
-    from opendesk.tools import (
-        get_open_tabs, take_screenshot, get_system_info, get_disk_usage,
-        list_processes, list_directory, get_clipboard, get_volume,
-        open_application, close_application, send_notification,
-    )
+        console.print("[yellow]No suitable model found.[/yellow]")
+        return
 
-    def get_current_time():
-        now = datetime.datetime.now()
-        return {
-            "time": now.strftime("%H:%M"),
-            "date": now.strftime("%Y-%m-%d"),
-            "weekday": now.strftime("%A"),
-            "full": now.strftime("%Y-%m-%d %H:%M:%S")
-        }
+    # --- Build tool registry + specs ---
+    from opendesk.commands.ask import _build_registry, _build_tool_specs, _execute_tool
+    registry = _build_registry()
+    tool_specs = _build_tool_specs(registry)
 
-    console.print(f"[green]Ollama bridge with {model}[/green]")
-    console.print("[dim]Type naturally. 'quit' to exit.[/dim]\n")
+    # --- Welcome banner ---
+    console.print()
+    console.print(Panel.fit(
+        f"[bold green]opendesk bridge[/bold green]\n"
+        f"  Model:   [cyan]{model}[/cyan]\n"
+        f"  Tools:   [yellow]{len(tool_specs)}[/yellow] available\n"
+        f"  Network: {'[red]OFFLINE[/red]' if not _check_internet() else '[green]online[/green]'}\n\n"
+        f"  [dim]Type naturally. 'quit' to exit.[/dim]",
+        title="[bold]opendesk[/bold]",
+        border_style="cyan",
+    ))
+    console.print()
 
-    tool_schemas = []
-    for name, schema in TOOL_SCHEMAS.items():
-        tool_schemas.append({
-            "type": "function",
-            "function": {
-                "name": name,
-                "description": schema["description"],
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        param_name: {"type": param_info["type"]}
-                        for param_name, param_info in schema.get("parameters", {}).items()
-                    }
-                }
-            }
-        })
-
-    system_prompt = f"""You are a friendly desktop assistant.
-
-AVAILABLE TOOLS:
-{json.dumps(tool_schemas)}
-
-IMPORTANT - MUST call get_current_time for date/time questions, don't guess!
-
-Use tools for:
-- "time", "date", "day" → get_current_time
-- "CPU", "memory", "battery" → get_system_info
-- "open safari" → open_application
-- "screenshot" → take_screenshot
-
-For casual chat, just respond naturally!
-
-If tool needed:
-TOOL: <tool_name>
-ARGS: <json>
-
-If chat only:
-TOOL: none
-REASON: <why>"""
-
-    tools = {
-        "get_open_tabs": get_open_tabs,
-        "take_screenshot": take_screenshot,
-        "get_system_info": get_system_info,
-        "get_disk_usage": get_disk_usage,
-        "list_processes": list_processes,
-        "list_directory": list_directory,
-        "get_clipboard": get_clipboard,
-        "get_volume": get_volume,
-        "open_application": open_application,
-        "close_application": close_application,
-        "send_notification": send_notification,
-        "get_current_time": get_current_time,
-    }
-
-    call_tool = lambda name, args: tools.get(name, lambda: {"error": f"Unknown: {name}"})(**args) if name in tools else {"error": f"Unknown tool: {name}"}
+    # --- Conversation loop ---
+    conversation: list[dict] = []
 
     while True:
         try:
             user_input = input("> ").strip()
-            if user_input.lower() in ["quit", "exit", "q"]:
-                break
-            if not user_input:
-                continue
+        except (KeyboardInterrupt, EOFError):
+            console.print("\n[cyan]Bye![/cyan]")
+            break
 
+        if not user_input:
+            continue
+        if user_input.lower() in ("quit", "exit", "q"):
+            console.print("[cyan]Bye![/cyan]")
+            break
+
+        # Add user message to history
+        conversation.append({"role": "user", "content": user_input})
+
+        # --- Call Ollama ---
+        try:
             response = ollama.chat(
                 model=model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_input}
-                ]
+                messages=conversation,
+                tools=tool_specs,
             )
+        except Exception as exc:
+            console.print(f"[red]Ollama error: {exc}[/red]")
+            # Remove failed message from history so conversation stays clean
+            conversation.pop()
+            continue
 
-            content = response.message.content.strip()
+        message = response.get("message", {})
+        tool_calls = message.get("tool_calls", [])
+        content = message.get("content", "")
 
-            if content.startswith("TOOL:"):
-                lines = content.split("\n")
-                tool_name = lines[0].replace("TOOL:", "").strip()
-                args_line = "".join(lines[1:]).replace("ARGS:", "").strip()
+        if tool_calls:
+            # --- Execute tool calls ---
+            tool_results = []
+            content = message.get("content", "")
+            
+            for call in tool_calls:
+                fn_name = call["function"]["name"]
+                fn_args = call["function"].get("arguments", {})
 
-                if tool_name == "none":
-                    reason = args_line.replace("REASON:", "").strip()
-                    console.print(f"[yellow]{reason}[/yellow]")
-                    continue
+                result = _execute_tool(fn_name, fn_args, registry)
 
-                try:
-                    args = json.loads(args_line) if args_line else {}
-                except json.JSONDecodeError:
-                    args = {}
+                if result is not None:
+                    # Show result to user
+                    try:
+                        console.print_json(json.dumps(result, default=str, indent=2))
+                    except Exception:
+                        console.print(str(result))
 
-                # Map args
-                if tool_name == "open_application":
-                    args["app_name"] = args.get("app_name") or args.get("application") or args.get("app") or args.get("name", "")
+                    tool_results.append({
+                        "tool": fn_name,
+                        "result": json.dumps(result, default=str)[:2000],
+                    })
 
-                result = call_tool(tool_name, args)
-                console.print_json(json.dumps(result))
-            else:
-                console.print(content)
+            # --- Send tool results back to model for summarization ---
+            # Add assistant message with tool calls to history
+            conversation.append({
+                "role": "assistant",
+                "content": content or "",
+                "tool_calls": tool_calls,
+            })
 
-        except KeyboardInterrupt:
-            console.print("\n[yellow]Bye![/yellow]")
-            break
-        except EOFError:
-            break
-        except Exception as e:
-            console.print(f"[red]Error: {e}[/red]")
+            # Add tool results to history
+            for tr in tool_results:
+                conversation.append({
+                    "role": "tool",
+                    "content": tr["result"],
+                })
+
+            # Ask model to summarize
+            try:
+                summary_response = ollama.chat(
+                    model=model,
+                    messages=conversation,
+                )
+                summary = summary_response.get("message", {}).get("content", "")
+                if summary:
+                    console.print(f"\n{summary}\n")
+                    conversation.append({"role": "assistant", "content": summary})
+            except Exception:
+                # If summarization fails, just continue
+                pass
+
+        elif content:
+            # --- Natural language response (no tools needed) ---
+            console.print(f"\n{content}\n")
+            conversation.append({"role": "assistant", "content": content})
+
+        else:
+            console.print("[dim]No response.[/dim]")
+
+        # --- Trim conversation to prevent context overflow ---
+        # Keep system prompt + last 20 exchanges
+        if len(conversation) > 40:
+            conversation = conversation[-40:]
+
+
+def _check_internet() -> bool:
+    """Quick check if internet is available."""
+    import socket
+    try:
+        socket.create_connection(("1.1.1.1", 53), timeout=1)
+        return True
+    except OSError:
+        return False
