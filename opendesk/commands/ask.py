@@ -18,6 +18,7 @@ TOOL_DESCRIPTIONS = {
     "open_application": "Open an application",
     "close_application": "Close an application",
     "send_notification": "Send a notification",
+    "get_current_time": "Get current date and time",
 }
 
 
@@ -41,28 +42,25 @@ def run_ask(query: str, model: str = None):
             }
         })
 
-    system_prompt = f"""You are a helpful desktop assistant. 
+system_prompt = f"""You are a friendly desktop assistant.
 
-AVAILABLE TOOLS (only call when needed):
+AVAILABLE TOOLS:
 {json.dumps(tool_schemas, indent=2)}
 
-IMPORTANT: Only use tools for specific actions like:
-- "check CPU" → TOOL: get_system_info
-- "open safari" → TOOL: open_application
-- "take screenshot" → TOOL: take_screenshot
+IMPORTANT - MUST call get_current_time for date/time questions!
 
-For casual conversation, greetings, opinions, or general knowledge questions, respond directly WITHOUT a tool.
+Use tools for:
+- "time", "date", "day" → get_current_time
+- "CPU", "memory", "battery" → get_system_info
+- "open app" → open_application
 
-Examples:
-- "hello" → Just say hello back!
-- "what time is it?" → Check your clock and tell them
-- "why is my Mac slow?" → Give advice based on the system info
+For casual chat, just respond naturally!
 
-If a tool is needed:
+If tool needed:
 TOOL: <tool_name>
 ARGS: <json>
 
-If NO tool is needed (just chat):
+If chat only:
 TOOL: none
 REASON: <why>"""
 
@@ -104,11 +102,21 @@ REASON: <why>"""
 
 def call_tool(tool_name: str, args: dict):
     """Call a tool and return result."""
+    import datetime
     from opendesk.tools import (
         get_open_tabs, take_screenshot, get_system_info, get_disk_usage,
         list_processes, list_directory, get_clipboard, get_volume,
         open_application, close_application, send_notification,
     )
+    
+    def get_current_time():
+        now = datetime.datetime.now()
+        return {
+            "time": now.strftime("%H:%M"),
+            "date": now.strftime("%Y-%m-%d"),
+            "weekday": now.strftime("%A"),
+            "full": now.strftime("%Y-%m-%d %H:%M:%S")
+        }
     
     if tool_name == "open_application":
         app_name = args.get("app_name") or args.get("application") or args.get("app") or args.get("name", "")
@@ -148,5 +156,7 @@ def call_tool(tool_name: str, args: dict):
         title = args.get("title", "")
         message = args.get("message", "")
         return send_notification(title=title, message=message)
+    elif tool_name == "get_current_time":
+        return get_current_time()
     else:
         return {"error": f"Unknown tool: {tool_name}"}

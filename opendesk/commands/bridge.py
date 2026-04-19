@@ -17,6 +17,7 @@ TOOL_SCHEMAS = {
     "open_application": {"description": "Open app", "parameters": {"app_name": {"type": "string"}}},
     "close_application": {"description": "Close app", "parameters": {"app_name": {"type": "string"}}},
     "send_notification": {"description": "Send notification", "parameters": {"title": {"type": "string"}, "message": {"type": "string"}}},
+    "get_current_time": {"description": "Get current date/time", "parameters": {}},
 }
 
 
@@ -24,11 +25,21 @@ def run_bridge(model: str = None):
     if not model:
         model = "llama3.2:latest"
     import ollama
+    import datetime
     from opendesk.tools import (
         get_open_tabs, take_screenshot, get_system_info, get_disk_usage,
         list_processes, list_directory, get_clipboard, get_volume,
         open_application, close_application, send_notification,
     )
+
+    def get_current_time():
+        now = datetime.datetime.now()
+        return {
+            "time": now.strftime("%H:%M"),
+            "date": now.strftime("%Y-%m-%d"),
+            "weekday": now.strftime("%A"),
+            "full": now.strftime("%Y-%m-%d %H:%M:%S")
+        }
 
     console.print(f"[green]Ollama bridge with {model}[/green]")
     console.print("[dim]Type naturally. 'quit' to exit.[/dim]\n")
@@ -50,30 +61,26 @@ def run_bridge(model: str = None):
             }
         })
 
-    system_prompt = f"""You are a helpful desktop assistant.
+    system_prompt = f"""You are a friendly desktop assistant.
 
-AVAILABLE TOOLS (only call when needed):
+AVAILABLE TOOLS:
 {json.dumps(tool_schemas)}
 
-IMPORTANT: Only use tools for specific actions like:
-- "check CPU/memory" → get_system_info
+IMPORTANT - MUST call get_current_time for date/time questions, don't guess!
+
+Use tools for:
+- "time", "date", "day" → get_current_time
+- "CPU", "memory", "battery" → get_system_info
 - "open safari" → open_application
-- "take screenshot" → take_screenshot
+- "screenshot" → take_screenshot
 
-For casual chat, greetings, opinions - just respond directly!
-
-Examples:
-- "hello" → Just say hello back!
-- "what time is it?" → Tell them
-- "how are you?" → Just chat
-
-Use EXACT param names: app_name (not application), path, level.
+For casual chat, just respond naturally!
 
 If tool needed:
 TOOL: <tool_name>
 ARGS: <json>
 
-If NO tool needed:
+If chat only:
 TOOL: none
 REASON: <why>"""
 
@@ -89,6 +96,7 @@ REASON: <why>"""
         "open_application": open_application,
         "close_application": close_application,
         "send_notification": send_notification,
+        "get_current_time": get_current_time,
     }
 
     call_tool = lambda name, args: tools.get(name, lambda: {"error": f"Unknown: {name}"})(**args) if name in tools else {"error": f"Unknown tool: {name}"}
