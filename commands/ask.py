@@ -55,7 +55,7 @@ REASON: <why not applicable>"""
 
     try:
         response = ollama.chat(
-            model=model or "llama3.2:latest",
+            model=model or "qwen2.5:7b",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": query}
@@ -70,8 +70,7 @@ REASON: <why not applicable>"""
             args_line = "".join(lines[1:]).replace("ARGS:", "").strip()
             
             if tool_line == "none":
-                reason = "".join(lines[1:]).replace("REASON:", "").strip()
-                console.print(f"[yellow]{reason}[/yellow]")
+                console.print(f"[yellow]{lines[1].replace('REASON:', '').strip()}[/yellow]")
                 return
             
             tool_name = tool_line
