@@ -176,6 +176,22 @@ def _pick_model(available_models: list[str]) -> Optional[str]:
 # Safe tool execution
 # ---------------------------------------------------------------------------
 
+def _clean_args(args: dict, valid_params: set) -> dict:
+    """Clean arguments - handle llama3.2 quirks like {key: {'type': 'int'}}."""
+    cleaned = {}
+    for k, v in args.items():
+        if k not in valid_params:
+            continue
+        # Handle llama3.2 returning {"key": {"type": "int"}} instead of {"key": <value>}
+        if isinstance(v, dict):
+            if "type" in v:
+                continue  # Skip type annotations
+            # If dict has other keys, just skip
+            continue
+        cleaned[k] = v
+    return cleaned
+
+
 def _execute_tool(name: str, args: dict, registry: dict) -> Optional[dict]:
     """
     Execute a tool with:
@@ -192,8 +208,8 @@ def _execute_tool(name: str, args: dict, registry: dict) -> Optional[dict]:
     sig = inspect.signature(registry[name])
     valid_params = set(sig.parameters.keys())
     
-    # Filter args to only valid params
-    filtered_args = {k: v for k, v in args.items() if k in valid_params}
+    # Clean args (handle llama3.2 quirks)
+    filtered_args = _clean_args(args, valid_params)
     
     console.print(f"  [yellow][{name}][/yellow] {json.dumps(filtered_args) if filtered_args else ''}")
 
