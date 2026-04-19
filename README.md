@@ -111,19 +111,42 @@ Add to `~/.cursor/mcp.json`:
 
 ### Option 5: Local AI (Ollama)
 
-```bash
-# Terminal 1: Start bridge
-cd opendesk
-source .venv/bin/activate
-python examples/ollama_bridge.py
+> **Prerequisite:** Install [Ollama](https://ollama.com) first
+> ```bash
+> # Install Ollama, then pull a model:
+> ollama pull llama3.2
+> ```
 
+Two ways to use with Ollama:
+
+**Option A: One-off query**
+```bash
+opendesk ask "why is my Mac slow?"
+opendesk ask "what is today's date?"
+opendesk ask "open safari"
+```
+
+**Option B: Interactive bridge (loops until you quit)**
+```bash
+opendesk bridge
 # Then type naturally:
-# "what is my CPU?"
-# "take a screenshot and save it"
-# "list my recent files"
+# "hello"                 → Just chats
+# "what time is it?"      → Returns current time
+# "check my CPU"         → System info
+# "open chrome"          → Opens app
+# quit                  → Exit
 ```
 
 ![Demo](/docs/demo-local-ai.gif)
+
+**Supported queries:**
+- System: CPU, memory, battery, disk, processes, network
+- Apps: open, close, focus applications
+- Files: list directory, read/write files
+- Clipboard: get/set
+- Audio: volume, mute/unmute
+- Time: date, time, weekday
+- Screenshots, notifications
 
 ---
 
