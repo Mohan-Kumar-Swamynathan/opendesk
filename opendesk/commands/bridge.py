@@ -50,16 +50,30 @@ def run_bridge(model: str = None):
             }
         })
 
-    system_prompt = f"""You are an opendesk assistant. Convert requests to tool calls.
-Available tools: {json.dumps(tool_schemas)}
+    system_prompt = f"""You are a helpful desktop assistant.
 
-Use EXACT parameter names: app_name (not application), path, level, save_path, title, message.
+AVAILABLE TOOLS (only call when needed):
+{json.dumps(tool_schemas)}
 
-Respond ONLY with:
+IMPORTANT: Only use tools for specific actions like:
+- "check CPU/memory" → get_system_info
+- "open safari" → open_application
+- "take screenshot" → take_screenshot
+
+For casual chat, greetings, opinions - just respond directly!
+
+Examples:
+- "hello" → Just say hello back!
+- "what time is it?" → Tell them
+- "how are you?" → Just chat
+
+Use EXACT param names: app_name (not application), path, level.
+
+If tool needed:
 TOOL: <tool_name>
 ARGS: <json>
 
-Or if no tool needed:
+If NO tool needed:
 TOOL: none
 REASON: <why>"""
 

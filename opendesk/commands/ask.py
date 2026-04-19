@@ -41,17 +41,30 @@ def run_ask(query: str, model: str = None):
             }
         })
 
-    system_prompt = f"""You are an opendesk assistant. Convert the user's request into a tool call.
-Available tools:
+    system_prompt = f"""You are a helpful desktop assistant. 
+
+AVAILABLE TOOLS (only call when needed):
 {json.dumps(tool_schemas, indent=2)}
 
-If a tool applies, respond with ONLY this format (no other text):
-TOOL: <tool_name>
-ARGS: <json arguments>
+IMPORTANT: Only use tools for specific actions like:
+- "check CPU" → TOOL: get_system_info
+- "open safari" → TOOL: open_application
+- "take screenshot" → TOOL: take_screenshot
 
-If no tool applies, respond with:
+For casual conversation, greetings, opinions, or general knowledge questions, respond directly WITHOUT a tool.
+
+Examples:
+- "hello" → Just say hello back!
+- "what time is it?" → Check your clock and tell them
+- "why is my Mac slow?" → Give advice based on the system info
+
+If a tool is needed:
+TOOL: <tool_name>
+ARGS: <json>
+
+If NO tool is needed (just chat):
 TOOL: none
-REASON: <why not applicable>"""
+REASON: <why>"""
 
     try:
         response = ollama.chat(
