@@ -1,5 +1,6 @@
 from typing import Optional
 import subprocess
+import sys
 
 
 class Accessibility:
@@ -19,8 +20,14 @@ class Accessibility:
                 click at mousePos
             end tell
         '''
-        subprocess.run(["osascript", "-e", script], check=True)
-        return {"success": True, "coordinates": {"x": x, "y": y}}
+        try:
+            subprocess.run(["osascript", "-e", script], check=True, capture_output=True, text=True)
+            return {"success": True, "coordinates": {"x": x, "y": y}}
+        except subprocess.CalledProcessError as e:
+            err = e.stderr or str(e)
+            if "not allowed" in err.lower() and "access" in err.lower():
+                return {"success": False, "error": err, "suggestion": "Grant Accessibility permission: System Settings → Privacy & Security → Accessibility"}
+            return {"success": False, "error": err}
 
     @staticmethod
     def type_text(text: str, interval: float = 0.05) -> dict:
@@ -32,7 +39,24 @@ class Accessibility:
                 keystroke "v" using command down
             end tell
         '''
-        subprocess.run(["osascript", "-e", script], check=True)
+        try:
+            subprocess.run(["osascript", "-e", script], check=True, capture_output=True, text=True)
+            pyperclip.copy(original)
+            return {"success": True}
+        except subprocess.CalledProcessError as e:
+            err = e.stderr or str(e)
+            pyperclip.copy(original)
+            err_lower = err.lower()
+            if "not allowed" in err_lower and "osascript" in err_lower:
+                return {"success": False, "error": err, "suggestion": "Grant Accessibility permission: System Settings → Privacy & Security → Accessibility"}
+            return {"success": False, "error": err}
+        try:
+            subprocess.run(["osascript", "-e", script], check=True, capture_output=True, text=True)
+        except subprocess.CalledProcessError as e:
+            err = e.stderr or str(e)
+            if "not allowed" in err.lower() and "access" in err.lower():
+                return {"success": False, "error": err, "suggestion": "Grant Accessibility permission: System Settings → Privacy & Security → Accessibility"}
+            return {"success": False, "error": err}
         import time
         time.sleep(interval)
         pyperclip.copy(original)
