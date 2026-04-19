@@ -65,7 +65,7 @@ def main():
     ask_p.add_argument("--model")
 
     bridge_p = sub.add_parser("bridge", help="Interactive Ollama bridge")
-    bridge_p.add_argument("--model", default="qwen2.5:7b")
+    bridge_p.add_argument("--model", default="llama3.2:latest")
 
     args, rest = parser.parse_known_args()
 
